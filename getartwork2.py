@@ -6,9 +6,18 @@ from dotenv import load_dotenv
 import re
 
 
-# 🔧 タイトル・アーティストのクリーンアップ（記号除去）
+# 🔧 タイトル・アーティストのクリーンアップ（検索クエリ用）
 def clean_title(text):
     return re.sub(r"[’'\"&()]", "", text)
+
+
+# 🔧 ファイル名として使えない文字を安全な文字に置換
+def sanitize_filename(filename):
+    """
+    ファイル名として使用できない文字をアンダースコアに置換します。
+    対象文字: \ / : * ? " < > |
+    """
+    return re.sub(r'[\\/:*?"<>|]', "_", filename)
 
 
 # ✅ `.env` ファイルを読み込む
@@ -67,8 +76,10 @@ def process_list(file_name, search_type):
             cleaned_name = clean_title(name)
             cleaned_artist = clean_title(artist_name)
 
+            album_info = None  # album_infoを初期化
+
             if search_type == "album":
-                # 🔍 アルバム検索（最大5件取得 → アーティスト名一致チェック）
+                # 🔍 アルバм検索（最大5件取得 → アーティスト名一致チェック）
                 query = f"{cleaned_name} {cleaned_artist}"
                 result = sp.search(q=query, type="album", limit=5)
                 matched = find_matching_item(result["albums"]["items"], cleaned_artist)
@@ -100,7 +111,13 @@ def process_list(file_name, search_type):
             # 🎨 アルバム名と画像URLを取得
             album_name = album_info["name"]
             image_url = album_info["images"][0]["url"]
-            image_path = os.path.join(IMG_FOLDER, f"{album_name.replace('/', '_')}.jpg")
+
+            # 🔧 ファイル名をサニタイズ（安全な名前に変換）
+            sanitized_artist_name = sanitize_filename(artist_name)
+            sanitized_album_name = sanitize_filename(album_name)
+            image_path = os.path.join(
+                IMG_FOLDER, f"{sanitized_artist_name}_{sanitized_album_name}.jpg"
+            )
 
             # 📥 画像をダウンロード
             img_data = requests.get(image_url).content
